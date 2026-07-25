@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/integrations/api/client';
 import { queryKeys } from './queryKeys';
-import { getLegacyCollectionMeta } from '@/lib/legacyCurriculum';
+import { getLegacyCollectionMeta, STATIC_LESSONS } from '@/lib/legacyCurriculum';
 
 export interface Lesson {
   id: string;
@@ -20,9 +20,14 @@ export function useLessons(collectionId: string | null, userId: string | undefin
     enabled: !!collectionId,
     staleTime: 30_000,
     queryFn: async () => {
-      const path = `/api/lessons?collectionId=${encodeURIComponent(collectionId!)}${userId ? `&userId=${userId}` : ''}`;
-      const rows = await api.get<Lesson[]>(path);
-      return rows;
+      try {
+        const path = `/api/lessons?collectionId=${encodeURIComponent(collectionId!)}${userId ? `&userId=${userId}` : ''}`;
+        const rows = await api.get<Lesson[]>(path);
+        if (rows && rows.length > 0) return rows;
+      } catch {
+        // fall through to static fallback
+      }
+      return (STATIC_LESSONS[collectionId!] ?? []).map(l => ({ ...l, status: 'CURRENT' as const }));
     },
   });
 }

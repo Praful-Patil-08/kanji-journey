@@ -96,6 +96,32 @@ const CHARACTER_PRESETS: Record<string, string[]> = {
   'Core Particles は を に で': ['は', 'を', 'に', 'で'],
 };
 
+export const STATIC_LESSONS: Record<string, LegacyLesson[]> = {
+  h1: [
+    { id: 'n5-w1-l1', collection_id: 'h1', title: 'Hiragana — あいうえお row', subtitle: 'Week 1 Lesson 1', characters: ['あ','い','う','え','お'], sort_order: 101, content: { topics: ['hiragana'], skill_area: 'kanji', level: 'N5' }, lesson_catalog_id: 'n5-w1-l1' },
+    { id: 'n5-w1-l2', collection_id: 'h1', title: 'Hiragana — かきくけこ row', subtitle: 'Week 1 Lesson 2', characters: ['か','き','く','け','こ'], sort_order: 102, content: { topics: ['hiragana'], skill_area: 'kanji', level: 'N5' }, lesson_catalog_id: 'n5-w1-l2' },
+  ],
+  k1: [
+    { id: 'n5-w2-l1', collection_id: 'k1', title: 'Katakana — アイウエオ row', subtitle: 'Week 2 Lesson 1', characters: ['ア','イ','ウ','エ','オ'], sort_order: 201, content: { topics: ['katakana'], skill_area: 'kanji', level: 'N5' }, lesson_catalog_id: 'n5-w2-l1' },
+    { id: 'n5-w2-l2', collection_id: 'k1', title: 'Katakana — カキクケコ row', subtitle: 'Week 2 Lesson 2', characters: ['カ','キ','ク','ケ','コ'], sort_order: 202, content: { topics: ['katakana'], skill_area: 'kanji', level: 'N5' }, lesson_catalog_id: 'n5-w2-l2' },
+  ],
+  p1: [
+    { id: 'n5-w3-l2', collection_id: 'p1', title: 'Core Particles は を に で', subtitle: 'Week 3 Lesson 2', characters: ['は','を','に','で'], sort_order: 302, content: { topics: ['particles'], skill_area: 'grammar', level: 'N5' }, lesson_catalog_id: 'n5-w3-l2' },
+  ],
+  v1: [
+    { id: 'n5-w6-l1', collection_id: 'v1', title: 'Essential Verbs — Group 1', subtitle: 'Week 6 Lesson 1', characters: [], sort_order: 601, content: { topics: ['verbs'], skill_area: 'grammar', level: 'N5' }, lesson_catalog_id: 'n5-w6-l1' },
+    { id: 'n5-w6-l2', collection_id: 'v1', title: 'Essential Verbs — Group 2', subtitle: 'Week 6 Lesson 2', characters: [], sort_order: 602, content: { topics: ['verbs'], skill_area: 'grammar', level: 'N5' }, lesson_catalog_id: 'n5-w6-l2' },
+  ],
+  f1: [
+    { id: 'n5-w3-l1', collection_id: 'f1', title: 'Basic Greetings', subtitle: 'Week 3 Lesson 1', characters: [], sort_order: 301, content: { topics: ['greetings'], skill_area: 'vocabulary', level: 'N5' }, lesson_catalog_id: 'n5-w3-l1' },
+    { id: 'n5-w4-l1', collection_id: 'f1', title: 'Numbers 1–100', subtitle: 'Week 4 Lesson 1', characters: [], sort_order: 401, content: { topics: ['numbers'], skill_area: 'vocabulary', level: 'N5' }, lesson_catalog_id: 'n5-w4-l1' },
+  ],
+  f2: [
+    { id: 'n4-w1-l1', collection_id: 'f2', title: 'N4 Kanji — Part 1', subtitle: 'Week 1 Lesson 1', characters: [], sort_order: 101, content: { topics: ['kanji'], skill_area: 'kanji', level: 'N4' }, lesson_catalog_id: 'n4-w1-l1' },
+    { id: 'n4-w1-l2', collection_id: 'f2', title: 'N4 Grammar — て-form uses', subtitle: 'Week 1 Lesson 2', characters: [], sort_order: 102, content: { topics: ['grammar'], skill_area: 'grammar', level: 'N4' }, lesson_catalog_id: 'n4-w1-l2' },
+  ],
+};
+
 export function getLegacyCollectionMeta(collectionId: string) {
   return LEGACY_COLLECTIONS.find((collection) => collection.id === collectionId) ?? null;
 }
