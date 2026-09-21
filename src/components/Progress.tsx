@@ -1,270 +1,307 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Calendar, 
-  Target, 
-  Zap, 
-  History, 
-  TrendingUp, 
-  ChevronRight,
+import { motion } from 'framer-motion';
+import {
+  Target,
   Clock,
-  Award,
-  Search,
-  Filter,
   Flame,
-  PenTool,
+  TrendingUp,
+  Award,
   BookOpen,
-  Loader2
-} from "lucide-react";
+  Loader2,
+  AlertTriangle,
+  Sparkles,
+  Brain,
+  Languages,
+  PenTool,
+  Headphones,
+} from 'lucide-react';
 import { GlassCard } from './ui/GlassCard';
 import { useAuth } from '@/hooks/useAuth';
+import { useMastery } from '@/hooks/data/useMastery';
+import { useRecommendations } from '@/hooks/data/useRecommendations';
+import { useFlashcardsDue } from '@/hooks/data/useFlashcards';
 import { useQuizHistory } from '@/hooks/data/useQuizHistory';
+import { useNavigate } from 'react-router-dom';
+
+const SKILLS = [
+  { key: 'kanji', label: 'Kanji', icon: PenTool, color: '#FFFFFF' },
+  { key: 'vocabulary', label: 'Vocabulary', icon: Languages, color: '#A78BFA' },
+  { key: 'grammar', label: 'Grammar', icon: Brain, color: '#60A5FA' },
+  { key: 'reading', label: 'Reading', icon: BookOpen, color: '#34D399' },
+  { key: 'listening', label: 'Listening', icon: Headphones, color: '#FBBF24' },
+] as const;
 
 export function Progress() {
   const { user, profile } = useAuth();
-  const { data: history, isLoading } = useQuizHistory(user?.id);
-  const [showIntensity, setShowIntensity] = React.useState(false);
+  const navigate = useNavigate();
+  const { data: mastery, isLoading: masteryLoading } = useMastery(user?.id);
+  const { data: rec } = useRecommendations(user?.id);
+  const { data: dueCards } = useFlashcardsDue(user?.id);
+  const { data: history } = useQuizHistory(user?.id, 20);
 
-  // Calculate dynamic weekly accuracies for the last 8 weeks
-  const rawWeeks = Array.from({ length: 8 }, (_, i) => {
-    const weekAgo = 7 - i;
-    const now = new Date();
-    const start = new Date(now.getTime() - (weekAgo * 7 * 24 * 60 * 60 * 1000));
-    const end = new Date(now.getTime() - ((weekAgo - 1) * 7 * 24 * 60 * 60 * 1000));
-    const weekAttempts = (history as any[])?.filter((h: any) => {
-      const d = new Date(h.created_at);
-      return d >= start && d < end;
-    }) || [];
-    if (weekAttempts.length === 0) return 0;
-    return Math.round(weekAttempts.reduce((acc, curr) => acc + (curr.score || 0), 0) / weekAttempts.length);
-  });
-  const chartData = history && history.length > 0 ? rawWeeks : [40, 60, 55, 80, 95, 70, 85, 92];
+  if (!user || !profile) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-8 h-8 border-2 border-white/10 border-t-white rounded-full animate-spin" />
+      </div>
+    );
+  }
 
-  if (!user || !profile) return <div className="flex items-center justify-center min-h-[60vh]"><div className="w-8 h-8 border-2 border-white/10 border-t-white rounded-full animate-spin" /></div>;
+  const isLoading = masteryLoading;
 
-  // Calculate activity for last 30 days
-  const today = new Date();
-  const last30DaysArr = Array.from({ length: 35 }, (_, i) => {
-    const date = new Date(today);
-    date.setDate(today.getDate() - (34 - i));
-    const dayStr = date.toISOString().split('T')[0];
-    const hasActivity = (history as any[])?.some((h: any) => new Date(h.created_at).toISOString().split('T')[0] === dayStr);
-    return { date, active: hasActivity };
-  });
+  // Real metrics — no fake fallbacks
+  const overallMastery = mastery?.overall.mastery ?? 0;
+  const avgAccuracy = mastery?.overall.accuracy ?? 0;
+  const recentAccuracy = mastery?.overall.recentAccuracy ?? 0;
+  const totalAttempts = mastery?.overall.totalAttempts ?? 0;
+  const weakCount = mastery?.overall.weakCount ?? 0;
+  const dueCount = dueCards?.length ?? 0;
+  const weakTopics = mastery?.weakTopics ?? [];
+  const recommended = rec?.session;
 
-  const averageAccuracy = (history as any[]) && (history as any[]).length > 0 
-    ? Math.round((history as any[]).reduce((acc: number, curr: any) => acc + (curr.score || 0), 0) / (history as any[]).length)
+  // Study time: from practice attempts (avgResponseTime * total) + quizHistory duration
+  const practiceTimeSec = totalAttempts > 0 && mastery?.overall.avgResponseTimeMs
+    ? Math.round((totalAttempts * (mastery.overall.avgResponseTimeMs || 2000)) / 1000)
     : 0;
-
-  const totalTimeSec = (history as any[])?.reduce((acc: number, curr: any) => acc + (curr.duration_sec || 0), 0) || 0;
+  const quizTimeSec = (history || []).reduce((s: number, r: any) => s + (r.duration_sec || 0), 0);
+  const totalTimeSec = practiceTimeSec + quizTimeSec;
   const timeStudiedHours = (totalTimeSec / 3600).toFixed(1);
+  const timeStudiedMinutes = Math.round(totalTimeSec / 60);
+
+  // Recent improvement: recentAccuracy - accuracy
+  const improvement = Math.round((recentAccuracy - avgAccuracy) * 10) / 10;
+  const improvementLabel = improvement > 0 ? `+${improvement}%` : improvement < 0 ? `${improvement}%` : 'steady';
+  const improvementColor = improvement > 2 ? 'text-emerald-400' : improvement < -2 ? 'text-red-400' : 'text-white/40';
+
+  // Per-skill mastery for visualization
+  const skillMastery = SKILLS.map(s => {
+    const stats = mastery?.bySection?.[s.key] || mastery?.byTopic?.[s.key];
+    return {
+      ...s,
+      mastery: stats?.mastery ?? 0,
+      accuracy: stats?.accuracy ?? 0,
+      total: stats?.totalAttempts ?? 0,
+      hasData: (stats?.totalAttempts ?? 0) > 0,
+    };
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
+        <Loader2 className="w-8 h-8 text-white/40 animate-spin" />
+        <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">Loading Analytics</p>
+      </div>
+    );
+  }
+
+  const hasAnyData = totalAttempts > 0 || (history && history.length > 0);
 
   return (
-    <div className="flex flex-col gap-14 animate-fade-in w-full pb-20 selection:bg-white/20 text-white font-sans uppercase text-left">
-      {/* Top Header */}
-      <header className="flex flex-col gap-12">
-        <div className="flex items-center justify-between">
-           <div className="space-y-4 flex flex-col items-start">
-             <h1 className="text-6xl font-display font-bold text-white tracking-tight leading-tight">Scholar Analytics</h1>
-             <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.4em]">Historical Data • Performance Deep-Dive</p>
-           </div>
-           
-           <div className="relative font-sans">
-              <div 
-                onClick={() => setShowIntensity(!showIntensity)}
-                className={`px-8 py-4 border rounded-xl flex items-center gap-4 group cursor-pointer transition-all shadow-sm ${showIntensity ? 'bg-white text-black border-white' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
-              >
-                 <Calendar size={18} className={showIntensity ? 'text-black' : 'text-white/40 group-hover:text-white'} />
-                 <span className="text-xs font-bold tracking-wide">Last 30 Days</span>
-              </div>
-
-              {/* Study Intensity Dropdown */}
-              <AnimatePresence>
-                {showIntensity && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className="absolute right-0 top-full mt-6 z-50 min-w-[320px]"
-                  >
-                    <GlassCard className="p-10 space-y-8 bg-black/60 backdrop-blur-3xl border-white/10 shadow-2xl ring-1 ring-white/10">
-                       <div className="space-y-4 flex flex-col items-start">
-                         <h3 className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em]">Study Intensity</h3>
-                         <div className="grid grid-cols-7 gap-2 w-full">
-                            {last30DaysArr.map((day, i) => (
-                              <div 
-                                key={i} 
-                                className={`aspect-square rounded-sm transition-all shadow-sm ${day.active ? 'bg-white shadow-[0_0_12px_rgba(255,255,255,0.4)]' : 'bg-white/10 border border-white/5'}`} 
-                              />
-                            ))}
-                         </div>
-                         <div className="flex items-center justify-between text-[8px] font-black text-white/20 uppercase tracking-widest mt-2 px-1 w-full">
-                            <span>Sun</span>
-                            <span>Sat</span>
-                         </div>
-                       </div>
-                    </GlassCard>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-           </div>
+    <div className="flex flex-col gap-10 animate-fade-in w-full pb-20 selection:bg-white/20 text-white font-sans text-left">
+      {/* Header */}
+      <header className="flex flex-col gap-8">
+        <div className="flex items-start justify-between gap-6">
+          <div className="space-y-3 flex flex-col items-start">
+            <h1 className="text-5xl font-display font-bold text-white tracking-tight leading-none">Scholar Analytics</h1>
+            <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">
+              {hasAnyData ? `${totalAttempts} attempts • ${timeStudiedMinutes} min studied` : 'No practice data yet'}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="px-5 py-3 bg-white/5 border border-white/10 rounded-xl flex items-center gap-3">
+              <Flame size={16} className="text-orange-400" />
+              <span className="text-xs font-bold text-white">{profile.streak || 0} day streak</span>
+            </div>
+            <div className="px-5 py-3 bg-white text-black rounded-xl flex items-center gap-2">
+              <Award size={16} />
+              <span className="text-xs font-black">{overallMastery}% mastery</span>
+            </div>
+          </div>
         </div>
 
-        {/* Top Level Metrics */}
-        <div className="grid grid-cols-4 gap-8 font-sans">
-           {[
-             { label: 'Avg. Accuracy', val: `${averageAccuracy}%`, icon: Target, trend: '+2.1%', color: '#FFFFFF' },
-             { label: 'Time Studied', val: `${timeStudiedHours}h`, icon: Clock, trend: '+5.4h', color: '#B4C6FC' },
-             { label: 'XP Earned', val: (profile.xp || 0).toLocaleString(), icon: Zap, trend: `+${(profile.xp || 0) % 100}`, color: '#FFD700' },
-             { label: 'Days Active', val: profile.streak || 0, icon: Flame, trend: 'Streak', color: '#FF4500' },
-           ].map((metric) => (
-             <GlassCard key={metric.label} className="p-8 space-y-4 hover:bg-white/10 border-white/10 transition-all shadow-lg flex flex-col items-start">
-                <div className="flex items-center justify-between w-full">
-                   <div className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/40 shadow-sm">
-                      <metric.icon size={18} />
-                   </div>
-                   <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">{metric.trend}</span>
-                </div>
-                <div className="space-y-1 flex flex-col items-start">
-                   <p className="text-3xl font-display font-bold text-white tracking-tight">{metric.val}</p>
-                   <p className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em]">{metric.label}</p>
-                </div>
-             </GlassCard>
-           ))}
+        {/* Top metrics — all from real data */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { label: 'Overall Mastery', val: `${overallMastery}%`, sub: `${avgAccuracy}% avg accuracy`, icon: Target },
+            { label: 'Recent Accuracy', val: `${recentAccuracy}%`, sub: improvementLabel, icon: TrendingUp, subColor: improvementColor },
+            { label: 'Time Studied', val: `${timeStudiedHours}h`, sub: `${timeStudiedMinutes} min`, icon: Clock },
+            { label: 'SRS Due', val: String(dueCount), sub: dueCount > 0 ? 'cards due today' : 'all caught up', icon: BookOpen },
+          ].map(m => (
+            <GlassCard key={m.label} className="p-6 space-y-4 flex flex-col items-start">
+              <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/50">
+                <m.icon size={16} />
+              </div>
+              <div className="space-y-1 flex flex-col items-start">
+                <p className="text-2xl font-display font-bold text-white tracking-tight">{m.val}</p>
+                <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.15em]">{m.label}</p>
+                <p className={`text-[10px] font-bold tracking-wide ${m.subColor || 'text-white/30'}`}>{m.sub}</p>
+              </div>
+            </GlassCard>
+          ))}
         </div>
       </header>
 
-      <div className="grid grid-cols-12 gap-16 font-sans">
-         {/* Left Side: Historical Charts */}
-         <div className="col-span-8 space-y-16">
-            
-            {/* Accuracy Over Time Chart */}
-            <section className="space-y-8 flex flex-col items-start">
-               <div className="flex items-end justify-between w-full">
-                  <div className="space-y-2 flex flex-col items-start">
-                    <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.4em]">Performance Trend</p>
-                    <h2 className="text-4xl font-display font-bold text-white tracking-tight leading-tight">Accuracy Over Time</h2>
-                  </div>
-                  <div className="flex gap-4">
-                     {['Weekly', 'Monthly'].map((item) => (
-                       <button key={item} className={`px-4 py-2 rounded text-[9px] font-black uppercase tracking-widest transition-all ${item === 'Weekly' ? 'bg-white/10 text-white shadow-sm' : 'text-white/40 hover:text-white'}`}>{item}</button>
-                     ))}
-                  </div>
-               </div>
-
-               <GlassCard className="p-12 h-[340px] flex flex-col justify-between bg-white/5 border-white/10 shadow-xl w-full">
-                  <div className="flex-1 flex items-end justify-between gap-4">
-                     {chartData.map((h, i) => (
-                       <div key={i} className="flex-1 flex flex-col items-center gap-4 h-full justify-end">
-                          <motion.div initial={{ height: 0 }} animate={{ height: `${h}%` }} className={`w-full rounded-t-md relative group ${i === 7 ? 'bg-white shadow-[0_0_20px_rgba(255,255,255,0.4)]' : 'bg-white/5 border border-white/5 transition-all hover:bg-white/10'}`}>
-                             <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black/40 border border-white/5 px-2 py-1 rounded text-[9px] font-black text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                                {h}%
-                             </div>
-                          </motion.div>
-                          <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest select-none">W{i+1}</span>
-                       </div>
-                     ))}
-                  </div>
-                  <div className="flex justify-between pt-8 border-t border-white/5 mt-8 text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">
-                     <span>OCTOBER 01</span>
-                     <span>OCTOBER 15</span>
-                     <span>TODAY</span>
-                  </div>
-               </GlassCard>
-            </section>
-
-            {/* Session History Table */}
-            <section className="space-y-8 flex flex-col items-start w-full">
-               <div className="flex items-center justify-between w-full">
-                  <div className="space-y-2 flex flex-col items-start">
-                    <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.4em]">Activity Log</p>
-                    <h2 className="text-4xl font-display font-bold text-white tracking-tight leading-tight">Recent Sessions</h2>
-                  </div>
-                  <div className="flex items-center gap-6">
-                     <Search size={16} className="text-white/20" />
-                     <Filter size={16} className="text-white/20" />
-                  </div>
-               </div>
-
-               {isLoading ? (
-                  <GlassCard className="p-20 flex flex-col items-center justify-center gap-6 shadow-xl w-full">
-                    <Loader2 className="w-10 h-10 text-white/10 animate-spin" />
-                    <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.4em] animate-pulse">Syncing History</p>
-                  </GlassCard>
-               ) : history && (history as any[]).length > 0 ? (
-                  <div className="glass-card w-full overflow-hidden divide-y divide-white/10 border-white/10 bg-white/5 shadow-2l flex flex-col uppercase">
-                   {(history as any[]).map((session: any) => (
-                      <div key={session.id} className="p-8 flex items-center justify-between group hover:bg-white/5 transition-all cursor-pointer">
-                         <div className="flex items-center gap-10 w-[40%] text-left font-sans">
-                            <div className="w-12 h-12 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-white/40 group-hover:text-white transition-colors shadow-sm">
-                               <TrendingUp size={22} />
-                            </div>
-                            <div className="space-y-1.5 border-l border-white/10 pl-10 flex flex-col items-start font-sans">
-                              <h3 className="text-xl font-display font-bold text-white tracking-wide uppercase">{session.lesson_catalog?.title || session.type?.toUpperCase()}</h3>
-                              <p className="text-[10px] text-white/20 font-black tracking-[0.2em] uppercase">{new Date(session.created_at).toLocaleDateString()}</p>
-                            </div>
-                         </div>
-
-                         <div className="flex items-center gap-12 font-sans">
-                            <div className="w-32 space-y-1 text-center">
-                               <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Duration</p>
-                               <p className="text-sm font-bold text-white/80">{Math.floor((session.duration_sec || 0) / 60)}M {(session.duration_sec || 0) % 60}S</p>
-                            </div>
-                            <div className="w-32 space-y-1 text-center font-display">
-                               <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] font-sans">Accuracy</p>
-                               <p className="text-lg font-bold text-white tracking-tighter uppercase">{session.score}%</p>
-                            </div>
-                            <div className="hidden lg:flex w-32 justify-center">
-                               <span className="px-3 py-1 bg-white/5 border border-white/10 rounded text-[8px] font-black text-white/40 tracking-widest uppercase shadow-sm">
-                                  {session.score >= 90 ? 'MASTERED' : 'COMPLETED'}
-                               </span>
-                            </div>
-                            <ChevronRight size={18} className="text-white/40 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-                         </div>
+      {!hasAnyData ? (
+        <GlassCard className="p-16 text-center space-y-6 flex flex-col items-center">
+          <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30">
+            <Target size={24} />
+          </div>
+          <div className="space-y-2 max-w-md">
+            <h3 className="text-lg font-display font-bold text-white uppercase tracking-wide">No analytics yet</h3>
+            <p className="text-sm text-white/40 leading-relaxed normal-case">
+              Complete a practice quiz or flashcard review to see your mastery, accuracy trends, and personalized recommendations. Every metric here comes from real attempts — no placeholders.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate('/session/quiz')}
+            className="mt-2 px-6 py-3 bg-white text-black rounded-full text-xs font-black uppercase tracking-[0.12em] hover:bg-white/90 transition-colors"
+          >
+            Start Practice
+          </button>
+        </GlassCard>
+      ) : (
+        <div className="grid grid-cols-12 gap-6">
+          {/* Left: per-skill mastery */}
+          <div className="col-span-12 lg:col-span-8 space-y-6">
+            <GlassCard className="p-8 space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-black text-white/60 uppercase tracking-[0.2em]">Skill Mastery</h2>
+                <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">{totalAttempts} total attempts</span>
+              </div>
+              <div className="space-y-4">
+                {skillMastery.map(s => (
+                  <div key={s.key} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <s.icon size={14} className="text-white/40" />
+                        <span className="text-xs font-bold text-white/80 uppercase tracking-[0.1em]">{s.label}</span>
+                        {!s.hasData && <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">no data</span>}
                       </div>
-                   ))}
+                      <span className="text-xs font-mono font-bold text-white">{s.mastery}%</span>
+                    </div>
+                    <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${s.mastery}%` }}
+                        transition={{ duration: 0.8, ease: 'easeOut' }}
+                        className="h-full rounded-full"
+                        style={{ background: s.hasData ? s.color : 'rgba(255,255,255,0.15)' }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-[9px] font-bold text-white/20 uppercase tracking-widest">
+                      <span>{s.total} attempts</span>
+                      <span>{s.accuracy}% accuracy</span>
+                    </div>
                   </div>
-               ) : (
-                  <GlassCard className="p-20 text-center text-white/10 italic text-[11px] font-black uppercase tracking-[0.4em] shadow-xl w-full">
-                    No Session Logs Recorded
-                  </GlassCard>
-               )}
-            </section>
-         </div>
-
-         {/* Right Side: Deep Stats Context */}
-         <div className="col-span-4 space-y-10 h-fit lg:sticky lg:top-12">
-            <GlassCard className="p-10 space-y-10 bg-white/5 border-white/10 shadow-2xl flex flex-col items-start font-sans">
-                <div className="space-y-4 flex flex-col items-start font-sans">
-                  <h2 className="text-xl font-display font-bold text-white tracking-wide uppercase">Mastery Achievements</h2>
-                  <p className="text-[10px] text-white/20 font-bold uppercase tracking-widest">Milestones & Recognition</p>
-                </div>
-
-                <div className="space-y-8 w-full">
-                   {[
-                     { title: 'The Polyglot', desc: 'Maintained a 14-day streak with 95%+ accuracy.', icon: Flame, mastered: (profile.streak || 0) >= 14 },
-                     { title: 'Scholarly Calligraphist', desc: 'Mastered 200 Kanji in the writing hub.', icon: PenTool, mastered: false },
-                     { title: 'Narrative Expert', desc: 'Completed 50 short stories in Reading practice.', icon: BookOpen, mastered: false },
-                   ].map((ach) => (
-                     <div key={ach.title} className={`flex items-start gap-6 group transition-all text-left font-sans ${ach.mastered ? 'opacity-100' : 'opacity-40'}`}>
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center border transition-all shadow-lg ${ach.mastered ? 'bg-white text-black border-white' : 'bg-white/5 border-white/10 text-white/20'}`}>
-                           <ach.icon size={22} />
-                        </div>
-                        <div className="space-y-1.5 flex-1 pt-1 flex flex-col items-start">
-                           <h4 className="text-sm font-bold text-white tracking-wide group-hover:text-white transition-colors uppercase">{ach.title}</h4>
-                           <p className="text-[11px] text-white/40 leading-relaxed font-medium italic normal-case">{ach.desc}</p>
-                        </div>
-                     </div>
-                   ))}
-                </div>
-                
-                <div className="flex items-center gap-3 pt-6 border-t border-white/10 w-full">
-                   <Award size={16} className="text-white/60" />
-                   <p className="text-[11px] font-black text-white/40 uppercase tracking-widest">Global Rank: #892 (Guardian)</p>
-                </div>
+                ))}
+              </div>
             </GlassCard>
-         </div>
-      </div>
+
+            {/* Accuracy trend — overall vs recent */}
+            <GlassCard className="p-8 space-y-6">
+              <h2 className="text-sm font-black text-white/60 uppercase tracking-[0.2em]">Accuracy Trend</h2>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-5 rounded-xl bg-white/5 border border-white/5 space-y-2">
+                  <p className="text-[10px] font-black text-white/30 uppercase tracking-widest">Average</p>
+                  <p className="text-3xl font-display font-bold text-white">{avgAccuracy}%</p>
+                  <p className="text-[10px] text-white/30">over {totalAttempts} attempts</p>
+                </div>
+                <div className="p-5 rounded-xl bg-white text-black space-y-2">
+                  <p className="text-[10px] font-black text-black/40 uppercase tracking-widest">Recent (last 20)</p>
+                  <p className="text-3xl font-display font-bold">{recentAccuracy}%</p>
+                  <p className={`text-[10px] font-bold ${improvement >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{improvementLabel} vs avg</p>
+                </div>
+              </div>
+            </GlassCard>
+          </div>
+
+          {/* Right: weak topics + next session */}
+          <div className="col-span-12 lg:col-span-4 space-y-6">
+            {/* Weak topics */}
+            <GlassCard className="p-6 space-y-5">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={14} className="text-amber-400" />
+                <h2 className="text-sm font-black text-white/60 uppercase tracking-[0.2em]">Weak Topics</h2>
+                <span className="ml-auto text-[10px] font-bold text-white/20">{weakCount} found</span>
+              </div>
+              {weakTopics.length > 0 ? (
+                <div className="space-y-3">
+                  {weakTopics.slice(0, 4).map(w => (
+                    <div
+                      key={w.topic}
+                      onClick={() => navigate('/session/quiz')}
+                      className="p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 cursor-pointer transition-colors space-y-2 text-left"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black text-white uppercase tracking-wide">{w.topic}</span>
+                        <span className="text-xs font-mono font-bold text-amber-300">{w.mastery}%</span>
+                      </div>
+                      <p className="text-[11px] text-white/40 leading-relaxed normal-case line-clamp-2">{w.reason}</p>
+                      <div className="flex items-center gap-2 text-[9px] font-bold text-white/20 uppercase tracking-widest">
+                        <span>{w.totalAttempts} attempts</span>
+                        <span>•</span>
+                        <span>{w.accuracy}% acc</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-8 rounded-xl bg-white/5 border border-dashed border-white/10 text-center space-y-2">
+                  <p className="text-xs font-bold text-white/60 uppercase tracking-wide">No weak topics</p>
+                  <p className="text-[11px] text-white/30 normal-case">Great work — all topics ≥60% mastery. Keep practicing to maintain.</p>
+                </div>
+              )}
+            </GlassCard>
+
+            {/* Recommended next session */}
+            <GlassCard className="p-6 space-y-5">
+              <div className="flex items-center gap-2">
+                <Sparkles size={14} className="text-violet-400" />
+                <h2 className="text-sm font-black text-white/60 uppercase tracking-[0.2em]">Recommended Next</h2>
+                {recommended && <span className="ml-auto text-[10px] font-bold text-white/30">{recommended.estimatedMinutes} min</span>}
+              </div>
+              {recommended && recommended.items.length > 0 ? (
+                <div className="space-y-3">
+                  {recommended.items.map((item, i) => (
+                    <div key={i} className="p-4 rounded-xl bg-white text-black space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-[0.15em] text-black/50">{item.type} {item.topic ? `• ${item.topic}` : ''}</span>
+                        <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-black/5">{item.estimatedMinutes}m</span>
+                      </div>
+                      <p className="text-xs font-bold leading-snug normal-case">{item.reasonDetail}</p>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-black/40">{item.reason}</p>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => navigate('/session/quiz')}
+                    className="w-full mt-2 py-3 bg-white/10 border border-white/10 rounded-xl text-xs font-black uppercase tracking-[0.12em] text-white hover:bg-white/15 transition-colors"
+                  >
+                    Start Session
+                  </button>
+                </div>
+              ) : (
+                <div className="p-6 rounded-xl bg-white/5 border border-white/5 text-center">
+                  <p className="text-xs text-white/30 normal-case">Complete a few attempts to get personalized recommendations.</p>
+                </div>
+              )}
+            </GlassCard>
+
+            {/* SRS summary */}
+            <GlassCard className="p-6 flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-[10px] font-black text-white/30 uppercase tracking-widest">SRS Due Today</p>
+                <p className="text-2xl font-display font-bold text-white">{dueCount} cards</p>
+              </div>
+              <button
+                onClick={() => navigate('/session/quiz')}
+                className="px-5 py-2.5 bg-white text-black rounded-full text-xs font-black uppercase tracking-wide hover:bg-white/90"
+              >
+                Review
+              </button>
+            </GlassCard>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
