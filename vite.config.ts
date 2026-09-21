@@ -29,41 +29,14 @@ export default defineConfig(() => ({
 
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": path.resolve("./src"),
     },
   },
 
   build: {
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          // Core React runtime — tiny, always needed
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-
-          'vendor-supabase': ['@supabase/supabase-js'],
-
-          // UI motion — used across many pages
-          'vendor-motion': ['framer-motion'],
-
-          // Data & state
-          'vendor-query': ['@tanstack/react-query'],
-
-          // Heavy chart / viz — only needed on Progress page
-          'vendor-charts': ['recharts'],
-
-          // Radix primitives — large but tree-shaken per component
-          'vendor-radix': [
-            '@radix-ui/react-dialog',
-            '@radix-ui/react-dropdown-menu',
-            '@radix-ui/react-select',
-            '@radix-ui/react-tabs',
-            '@radix-ui/react-tooltip',
-            '@radix-ui/react-accordion',
-            '@radix-ui/react-popover',
-            '@radix-ui/react-scroll-area',
-          ],
-        },
-      },
-    },
+    // manualChunks removed — Vite 6 + Node 26 hangs with object-style manualChunks
+    // for this project (2150 modules). Let Vite/Rollup auto-split; keep config minimal
+    // and re-introduce chunking only if measured chunk >500kB causes perf issue.
+    chunkSizeWarningLimit: 800,
   },
 }));

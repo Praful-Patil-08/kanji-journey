@@ -17,6 +17,8 @@ const flashcardsRouter      = require('./routes/flashcards.cjs');
 const weakTopicsRouter      = require('./routes/weakTopics.cjs');
 const completionsRouter     = require('./routes/completions.cjs');
 const quizHistoryRouter     = require('./routes/quizHistory.cjs');
+const practiceAttemptsRouter = require('./routes/practiceAttempts.cjs');
+const chatRouter            = require('./routes/chat.cjs').chatRouter;
 
 // Legacy routes (kept as-is)
 const { guestAuthRouter }   = require('./auth/guest.route.cjs');
@@ -59,11 +61,13 @@ app.use('/api/flashcards',     flashcardsRouter);
 app.use('/api/weak-topics',    weakTopicsRouter);
 app.use('/api/complete-lesson', completionsRouter);
 app.use('/api/quiz-history',   quizHistoryRouter);
+app.use('/api/practice-attempts', practiceAttemptsRouter);
+ // app.use('/api/chat',           chatRouter); // Temporarily disabled for testing
 
 // ── Legacy routes ────────────────────────────────────────────────────────────
 app.use(guestAuthRouter);
 
-// Pronunciation scoring (HuggingFace ASR — no DB)
+// ── Pronunciation scoring (HuggingFace ASR — no DB) ─────────────────────────────────────
 const JLPT_LEVELS = new Set(['N5', 'N4', 'N3', 'N2', 'N1']);
 
 function base64ToBuffer(b64) { return Buffer.from(b64, 'base64'); }
@@ -111,11 +115,8 @@ app.post('/api/pronunciation/score', async (req, res) => {
 });
 
 // ── Start ─────────────────────────────────────────────────────────────────────
-if (require.main === module) {
-  const port = Number(process.env.PORT || 4000);
-  connectDB().then(() => {
-    app.listen(port, () => console.log(`[Server] Listening on http://localhost:${port}`));
-  });
-}
+const port = Number(process.env.PORT || 4000);
+app.listen(port, () => console.log(`[Server] Listening on http://localhost:${port}`));
+connectDB().catch((err) => console.error('[DB Error]', err));
 
 module.exports = { app };

@@ -91,12 +91,43 @@ export function useSavePracticeAnswer() {
       questionId,
       isCorrect,
       topic,
+      selectedAnswer,
+      correctAnswer,
+      responseTimeMs,
+      difficulty,
+      level,
+      section,
     }: {
       userId: string;
       questionId: string;
       isCorrect: boolean;
       topic?: string;
+      selectedAnswer?: string;
+      correctAnswer?: string;
+      responseTimeMs?: number | null;
+      difficulty?: 'easy' | 'medium' | 'hard' | null;
+      level?: string;
+      section?: string | null;
     }) => {
+      // Always record the attempt (feeds mastery + analytics)
+      if (selectedAnswer !== undefined && correctAnswer !== undefined) {
+        await api.post('/api/practice-attempts', {
+          user_id:        userId,
+          questionId,
+          topic:          topic ?? 'practice',
+          section:        section ?? topic ?? null,
+          selectedAnswer,
+          correctAnswer,
+          isCorrect,
+          responseTimeMs: responseTimeMs ?? null,
+          difficulty:     difficulty ?? null,
+          level:          level ?? 'N5',
+        }).catch(() => {
+          // Non-blocking: attempt logging should not fail the UX
+        });
+      }
+
+      // Legacy weak-topic increment for incorrect answers
       if (isCorrect) return;
       const skillArea = topic ?? 'practice';
       await api.post('/api/weak-topics/batch', {
@@ -109,9 +140,11 @@ export function useSavePracticeAnswer() {
         }],
       });
     },
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['quizHistory'] });
       qc.invalidateQueries({ queryKey: ['weakTopics'] });
+      qc.invalidateQueries({ queryKey: ['practiceAttempts', vars.userId] });
+      qc.invalidateQueries({ queryKey: ['practiceHistory', vars.userId] });
     },
   });
 }
