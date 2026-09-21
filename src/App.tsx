@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { AuthProvider } from "@/context/AuthContext";
 import { AppPreferencesProvider } from "@/context/AppPreferencesContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -131,6 +132,7 @@ const App = () => {
             <TooltipProvider>
               <Toaster />
               <Sonner />
+              <OfflineIndicator />
               <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                 <ErrorBoundary>
                   <AuthenticatedApp />
