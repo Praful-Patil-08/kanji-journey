@@ -2,7 +2,6 @@
 import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const { calculateTopicStats, calculateMastery } = require('../../server/services/mastery.cjs');
 
 function makeAttempts(n: number, correct: number, opts?: { topic?: string; section?: string; startDate?: string; responseTimeMs?: number | null }) {
