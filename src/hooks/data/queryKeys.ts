@@ -42,6 +42,10 @@ export const queryKeys = {
     ['practiceAttempts', userId, topic ?? 'all', questionId ?? 'all'] as const,
   practiceHistory:  (userId: string) => ['practiceHistory', userId] as const,
 
+  // ── Mastery ──────────────────────────────────────────────────────────
+  mastery: (userId: string, topic?: string | null, section?: string | null) =>
+    ['mastery', userId, topic ?? 'all', section ?? 'all'] as const,
+
   // ── Onboarding / Level ───────────────────────────────────────────
   learningPath:  (userId: string) => ['learningPath', userId] as const,
   levelOverride: (userId: string) => ['levelOverride', userId] as const,
