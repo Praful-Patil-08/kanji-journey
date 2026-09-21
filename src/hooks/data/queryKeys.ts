@@ -46,6 +46,9 @@ export const queryKeys = {
   mastery: (userId: string, topic?: string | null, section?: string | null) =>
     ['mastery', userId, topic ?? 'all', section ?? 'all'] as const,
 
+  // ── Recommendations ──────────────────────────────────────────────────
+  recommendations: (userId: string) => ['recommendations', userId] as const,
+
   // ── Onboarding / Level ───────────────────────────────────────────
   learningPath:  (userId: string) => ['learningPath', userId] as const,
   levelOverride: (userId: string) => ['levelOverride', userId] as const,

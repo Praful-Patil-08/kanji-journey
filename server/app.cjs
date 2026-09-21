@@ -19,6 +19,7 @@ const completionsRouter     = require('./routes/completions.cjs');
 const quizHistoryRouter     = require('./routes/quizHistory.cjs');
 const practiceAttemptsRouter = require('./routes/practiceAttempts.cjs');
 const masteryRouter         = require('./routes/mastery.cjs');
+const recommendationsRouter  = require('./routes/recommendations.cjs');
 const chatRouter            = require('./routes/chat.cjs').chatRouter;
 
 // Legacy routes (kept as-is)
@@ -64,6 +65,7 @@ app.use('/api/complete-lesson', completionsRouter);
 app.use('/api/quiz-history',   quizHistoryRouter);
 app.use('/api/practice-attempts', practiceAttemptsRouter);
 app.use('/api/mastery',        masteryRouter);
+app.use('/api/recommendations', recommendationsRouter);
  // app.use('/api/chat',           chatRouter); // Temporarily disabled for testing
 
 // ── Legacy routes ────────────────────────────────────────────────────────────
