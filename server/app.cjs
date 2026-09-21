@@ -20,7 +20,10 @@ const quizHistoryRouter     = require('./routes/quizHistory.cjs');
 const practiceAttemptsRouter = require('./routes/practiceAttempts.cjs');
 const masteryRouter         = require('./routes/mastery.cjs');
 const recommendationsRouter  = require('./routes/recommendations.cjs');
+const pronunciationRouter    = require('./routes/pronunciation.cjs');
 const chatRouter            = require('./routes/chat.cjs').chatRouter;
+const PronunciationAttempt   = require('./models/PronunciationAttempt.cjs');
+const { authSupabase }       = require('./middleware/authSupabase.cjs');
 
 // Legacy routes (kept as-is)
 const { guestAuthRouter }   = require('./auth/guest.route.cjs');
@@ -67,6 +70,7 @@ app.use('/api/practice-attempts', practiceAttemptsRouter);
 app.use('/api/mastery',        masteryRouter);
 app.use('/api/recommendations', recommendationsRouter);
 app.use('/api/chat',           chatRouter);
+app.use('/api/pronunciation',  pronunciationRouter);
 
 // ── Legacy routes ────────────────────────────────────────────────────────────
 app.use(guestAuthRouter);
@@ -86,6 +90,7 @@ function similarityPercent(a, b) {
   return Math.max(0, Math.round((same / max) * 100));
 }
 
+// Pronunciation scoring + history (scores not faked, persisted when authenticated)
 app.post('/api/pronunciation/score', async (req, res) => {
   try {
     const { audioBase64, targetText } = req.body ?? {};
@@ -107,12 +112,74 @@ app.post('/api/pronunciation/score', async (req, res) => {
     const pronunciationScore = similarityPercent(transcript, targetText);
     const pitchAccentScore = Math.max(40, pronunciationScore - 8);
 
-    return res.json({
+    const baseResponse = {
       transcript, pronunciationScore, pitchAccentScore,
       suggestions: pronunciationScore < 75
         ? ['Speak slightly slower and keep mora timing even.', 'Repeat while shadowing native audio 2-3 times.', 'Focus on vowel length and small-tsu pauses.']
         : ['Good clarity. Next: refine pitch accent contour.'],
-    });
+    };
+
+    // Try to persist if authenticated (optional — don't fail the scoring if not)
+    let userId = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice(7);
+      try {
+        // Reuse auth logic without requiring it: try Supabase verification, fallback to decode
+        const { createClient } = require('@supabase/supabase-js');
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        if (supabaseUrl && serviceKey) {
+          const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+          const { data } = await supabase.auth.getUser(token);
+          userId = data?.user?.id || null;
+        } else {
+          const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+          userId = payload?.sub || null;
+        }
+      } catch {}
+    }
+
+    if (userId) {
+      try {
+        const count = await PronunciationAttempt.countDocuments({ user_id: userId, targetText });
+        const attemptNumber = count + 1;
+        const doc = await PronunciationAttempt.create({
+          id: crypto.randomUUID(),
+          user_id: userId,
+          targetText,
+          transcript,
+          pronunciationScore,
+          pitchAccentScore,
+          attemptNumber,
+          createdAt: new Date(),
+        });
+        // Also feed a lightweight PracticeAttempt for analytics (listening/speaking)
+        try {
+          const PracticeAttempt = require('./models/PracticeAttempt.cjs');
+          await PracticeAttempt.create({
+            id: crypto.randomUUID(),
+            user_id: userId,
+            questionId: `pronunciation:${targetText}`,
+            topic: 'listening',
+            section: 'listening',
+            selectedAnswer: transcript,
+            correctAnswer: targetText,
+            isCorrect: pronunciationScore >= 75,
+            responseTimeMs: null,
+            difficulty: pronunciationScore >= 75 ? 'easy' : 'hard',
+            level: 'N5',
+            createdAt: new Date(),
+          });
+        } catch {}
+        return res.json({ ...baseResponse, attemptNumber, historyId: doc.id, persisted: true });
+      } catch (e) {
+        console.error('[pronunciation] persist failed:', e.message);
+        return res.json({ ...baseResponse, persisted: false });
+      }
+    }
+
+    return res.json({ ...baseResponse, persisted: false });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Pronunciation scoring failed' });
   }

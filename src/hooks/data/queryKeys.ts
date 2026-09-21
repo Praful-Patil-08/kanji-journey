@@ -52,6 +52,12 @@ export const queryKeys = {
   // ── Recommendations ──────────────────────────────────────────────────
   recommendations: (userId: string) => ['recommendations', userId] as const,
 
+  // ── Pronunciation ────────────────────────────────────────────────────
+  pronunciationHistory: (userId: string, targetText?: string | null) =>
+    ['pronunciationHistory', userId, targetText ?? 'all'] as const,
+  pronunciationStats: (userId: string, targetText?: string | null) =>
+    ['pronunciationStats', userId, targetText ?? 'all'] as const,
+
   // ── Onboarding / Level ───────────────────────────────────────────
   learningPath:  (userId: string) => ['learningPath', userId] as const,
   levelOverride: (userId: string) => ['levelOverride', userId] as const,
