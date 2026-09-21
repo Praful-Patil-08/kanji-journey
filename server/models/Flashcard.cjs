@@ -22,6 +22,10 @@ const flashcardSchema = new mongoose.Schema(
 
 // Unique per user + front text (prevents duplicate cards)
 flashcardSchema.index({ user_id: 1, front: 1 }, { unique: true });
+// Efficient due query: GET /:userId/due filters by next_review_date
+flashcardSchema.index({ user_id: 1, next_review_date: 1 });
+// For user history and analytics
+flashcardSchema.index({ user_id: 1, updated_at: -1 });
 
 flashcardSchema.set('toJSON', {
   transform: (_doc, ret) => {

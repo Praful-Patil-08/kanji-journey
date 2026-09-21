@@ -1,8 +1,11 @@
 'use strict';
 const express = require('express');
 const Flashcard = require('../models/Flashcard.cjs');
+const FlashcardReview = require('../models/FlashcardReview.cjs');
+const PracticeAttempt = require('../models/PracticeAttempt.cjs');
 const { authSupabase } = require('../middleware/authSupabase.cjs');
 const { sm2Review } = require('../services/srs.cjs');
+const { getLessonById } = require('../data/lessonCatalog.cjs');
 
 const router = express.Router();
 
@@ -97,7 +100,66 @@ router.post('/:cardId/review', authSupabase(), async (req, res) => {
       { new: true, lean: true }
     );
 
+    // ── Persist review history (for analytics, not just counters) ───────────
+    try {
+      await FlashcardReview.create({
+        id: crypto.randomUUID(),
+        user_id: existing.user_id,
+        card_id: cardId,
+        grade,
+        ease_before: existing.ease_factor ?? 2.5,
+        ease_after: updates.ease_factor,
+        interval_before: existing.interval_days ?? 1,
+        interval_after: updates.interval_days,
+        review_state_before: existing.review_state,
+        review_state_after: updates.review_state,
+        createdAt: new Date(),
+      });
+    } catch (e) {
+      console.error('[FlashcardReview] failed to persist:', e.message);
+    }
+
+    // ── Feed mastery/recommendations via PracticeAttempt ────────────────────
+    // Map flashcard to a practice topic so SRS reviews contribute to mastery.
+    // Use lesson_id → skill_area if available, otherwise generic 'kanji'.
+    try {
+      const catalog = existing.lesson_id ? getLessonById(existing.lesson_id) : null;
+      const topic = catalog?.skill_area || 'kanji';
+      const section = catalog?.skill_area || topic;
+      await PracticeAttempt.create({
+        id: crypto.randomUUID(),
+        user_id: existing.user_id,
+        questionId: `flashcard:${cardId}`,
+        topic,
+        section,
+        selectedAnswer: String(grade),
+        correctAnswer: grade >= 3 ? String(grade) : 'review',
+        isCorrect: grade >= 3,
+        responseTimeMs: null,
+        difficulty: grade <= 1 ? 'hard' : grade === 5 ? 'easy' : 'medium',
+        level: catalog?.level || 'N5',
+        createdAt: new Date(),
+      });
+    } catch (e) {
+      console.error('[Flashcard→PracticeAttempt] feed failed:', e.message);
+    }
+
     return res.json(updated);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/flashcards/:cardId/history — review history for a card (owner only)
+router.get('/:cardId/history', authSupabase(), async (req, res) => {
+  try {
+    const { cardId } = req.params;
+    const card = await Flashcard.findOne({ id: cardId }).lean();
+    if (!card) return res.status(404).json({ error: 'Flashcard not found' });
+    if (req.userId !== card.user_id) return res.status(403).json({ error: 'Forbidden' });
+
+    const history = await FlashcardReview.find({ card_id: cardId }).sort({ createdAt: -1 }).limit(50).lean();
+    return res.json(history);
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
