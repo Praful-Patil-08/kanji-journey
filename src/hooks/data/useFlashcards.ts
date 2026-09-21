@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/integrations/api/client';
 import { queryKeys } from './queryKeys';
 
@@ -55,6 +55,45 @@ export function useFlashcards(userId: string | undefined) {
       const cards = await api.get<FlashcardWithLegacy[]>(`/api/flashcards/${userId}`);
       return cards.map(toLegacy);
     },
+  });
+}
+
+// Cursor-based infinite pagination for large decks (preferred for >100 cards)
+export function useFlashcardsInfinite(userId: string | undefined, limit = 20) {
+  return useInfiniteQuery({
+    queryKey: [...queryKeys.flashcardsInfinite(userId ?? ''), limit] as const,
+    enabled: !!userId,
+    staleTime: 30_000,
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam }) => {
+      const qs = new URLSearchParams();
+      qs.set('limit', String(limit));
+      if (pageParam) qs.set('cursor', pageParam as string);
+      const res = await api.get<{ data: FlashcardWithLegacy[]; nextCursor: string | null; hasMore: boolean }>(
+        `/api/flashcards/${userId}?${qs.toString()}`
+      );
+      return { ...res, data: res.data.map(toLegacy) };
+    },
+    getNextPageParam: last => last.nextCursor,
+  });
+}
+
+export function useFlashcardsDueInfinite(userId: string | undefined, limit = 20) {
+  return useInfiniteQuery({
+    queryKey: [...queryKeys.flashcardsDueInfinite(userId ?? ''), limit] as const,
+    enabled: !!userId,
+    staleTime: 30_000,
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam }) => {
+      const qs = new URLSearchParams();
+      qs.set('limit', String(limit));
+      if (pageParam) qs.set('cursor', pageParam as string);
+      const res = await api.get<{ data: FlashcardWithLegacy[]; nextCursor: string | null; hasMore: boolean }>(
+        `/api/flashcards/${userId}/due?${qs.toString()}`
+      );
+      return { ...res, data: res.data.map(toLegacy) };
+    },
+    getNextPageParam: last => last.nextCursor,
   });
 }
 

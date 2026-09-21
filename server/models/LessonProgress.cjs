@@ -18,6 +18,9 @@ const lessonProgressSchema = new mongoose.Schema(
 );
 
 lessonProgressSchema.index({ user_id: 1, lesson_id: 1 }, { unique: true });
+// Pagination for quiz history: GET /:userId?cursor=completed_at
+lessonProgressSchema.index({ user_id: 1, completed: 1, completed_at: -1 });
+lessonProgressSchema.index({ user_id: 1, completed_at: -1 });
 
 lessonProgressSchema.set('toJSON', {
   transform: (_doc, ret) => {

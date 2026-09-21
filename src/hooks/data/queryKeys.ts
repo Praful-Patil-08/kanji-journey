@@ -32,9 +32,12 @@ export const queryKeys = {
   flashcardsDue: (userId: string, collectionId?: string | null) =>
     ['flashcardsDue', userId, collectionId ?? 'all'] as const,
   flashcards: (userId: string) => ['flashcards', userId] as const,
+  flashcardsInfinite: (userId: string) => ['flashcardsInfinite', userId] as const,
+  flashcardsDueInfinite: (userId: string) => ['flashcardsDueInfinite', userId] as const,
 
   // ── Progress & Analytics ─────────────────────────────────────────
   quizHistory:  (userId: string) => ['quizHistory', userId] as const,
+  quizHistoryInfinite: (userId: string) => ['quizHistoryInfinite', userId] as const,
   weakTopics:   (userId: string) => ['weakTopics', userId] as const,
 
   // ── Practice Attempts ──────────────────────────────────────────────

@@ -10,31 +10,65 @@ const { getLessonById } = require('../data/lessonCatalog.cjs');
 const router = express.Router();
 
 // GET /api/flashcards/:userId — all flashcards for a user
+// Supports cursor pagination: ?limit=20&cursor=ISO (created_at) → { data, nextCursor, hasMore }
+// Without pagination params, returns array for backward compat
 router.get('/:userId', authSupabase(), async (req, res) => {
   try {
     const { userId } = req.params;
     if (req.userId !== userId) return res.status(403).json({ error: 'Forbidden' });
 
-    const cards = await Flashcard.find({ user_id: userId }).lean();
+    const limitParam = req.query.limit;
+    const cursor = req.query.cursor ? String(req.query.cursor) : null;
+
+    // If pagination requested, use cursor pagination
+    if (limitParam !== undefined || cursor) {
+      const limit = Math.min(Math.max(parseInt(String(limitParam), 10) || 20, 1), 100);
+      if (cursor && isNaN(new Date(cursor).getTime())) {
+        return res.status(400).json({ error: 'Invalid cursor (expected ISO date)' });
+      }
+      const filter = { user_id: userId };
+      if (cursor) filter.created_at = { $lt: cursor };
+      const rows = await Flashcard.find(filter).sort({ created_at: -1 }).limit(limit + 1).lean();
+      const hasMore = rows.length > limit;
+      const data = hasMore ? rows.slice(0, limit) : rows;
+      const nextCursor = hasMore ? data[data.length - 1].created_at : null;
+      return res.json({ data, nextCursor, hasMore });
+    }
+
+    const cards = await Flashcard.find({ user_id: userId }).sort({ created_at: -1 }).lean();
     return res.json(cards);
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
 });
 
-// GET /api/flashcards/:userId/due?collectionId= — cards due for review today
+// GET /api/flashcards/:userId/due?collectionId=&limit=&cursor= — cards due for review today
+// Supports cursor pagination via created_at (with due filter)
 router.get('/:userId/due', authSupabase(), async (req, res) => {
   try {
     const { userId } = req.params;
     if (req.userId !== userId) return res.status(403).json({ error: 'Forbidden' });
 
     const today = new Date().toISOString().slice(0, 10);
+    const limitParam = req.query.limit;
+    const cursor = req.query.cursor ? String(req.query.cursor) : null;
+
     const filter = { user_id: userId, next_review_date: { $lte: today } };
 
-    // If collectionId provided, filter by lessons in that collection.
-    // lesson_id on flashcards matches lesson catalog IDs for cards created by complete-lesson.
-    // For cards created via add-to-flashcards (lesson_id: null) we show them always.
-    const cards = await Flashcard.find(filter).lean();
+    if (limitParam !== undefined || cursor) {
+      const limit = Math.min(Math.max(parseInt(String(limitParam), 10) || 20, 1), 100);
+      if (cursor && isNaN(new Date(cursor).getTime())) {
+        return res.status(400).json({ error: 'Invalid cursor (expected ISO date)' });
+      }
+      if (cursor) filter.created_at = { $lt: cursor };
+      const rows = await Flashcard.find(filter).sort({ created_at: -1 }).limit(limit + 1).lean();
+      const hasMore = rows.length > limit;
+      const data = hasMore ? rows.slice(0, limit) : rows;
+      const nextCursor = hasMore ? data[data.length - 1].created_at : null;
+      return res.json({ data, nextCursor, hasMore });
+    }
+
+    const cards = await Flashcard.find(filter).sort({ next_review_date: 1 }).lean();
     return res.json(cards);
   } catch (err) {
     return res.status(500).json({ error: err.message });
