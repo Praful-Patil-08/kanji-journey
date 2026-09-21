@@ -26,6 +26,8 @@ const dictionaryRouter       = require('./routes/dictionary.cjs');
 const chatRouter            = require('./routes/chat.cjs').chatRouter;
 const PronunciationAttempt   = require('./models/PronunciationAttempt.cjs');
 const { authSupabase }       = require('./middleware/authSupabase.cjs');
+const { notFound, errorHandler } = require('./middleware/errorHandler.cjs');
+const { rateLimit }          = require('./middleware/rateLimit.cjs');
 
 // Legacy routes (kept as-is)
 const { guestAuthRouter }   = require('./auth/guest.route.cjs');
@@ -54,8 +56,21 @@ app.use(cors({
 app.use(express.json({ limit: '25mb' }));
 app.use(cookieParser());
 
+// ── Request logging (dev) ────────────────────────────────────────────────────
+app.use((req, _res, next) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[API] ${req.method} ${req.path}`);
+  }
+  next();
+});
+
 // ── Health ───────────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => res.json({ ok: true }));
+
+// ── Rate limiting for expensive endpoints ─────────────────────────────────────
+const chatLimiter = rateLimit({ windowMs: 60_000, max: 20, keyPrefix: 'chat' });
+const pronLimiter = rateLimit({ windowMs: 60_000, max: 20, keyPrefix: 'pron' });
+const ocrLimiter  = rateLimit({ windowMs: 60_000, max: 30, keyPrefix: 'ocr' });
 
 // ── MongoDB-backed API routes ─────────────────────────────────────────────────
 app.use('/api/profiles',       profilesRouter);
@@ -71,9 +86,9 @@ app.use('/api/quiz-history',   quizHistoryRouter);
 app.use('/api/practice-attempts', practiceAttemptsRouter);
 app.use('/api/mastery',        masteryRouter);
 app.use('/api/recommendations', recommendationsRouter);
-app.use('/api/chat',           chatRouter);
-app.use('/api/pronunciation',  pronunciationRouter);
-app.use('/api/ocr',            ocrRouter);
+app.use('/api/chat', chatLimiter, chatRouter);
+app.use('/api/pronunciation', pronLimiter, pronunciationRouter);
+app.use('/api/ocr', ocrLimiter, ocrRouter);
 app.use('/api',                dictionaryRouter); // handles /api/dictionary/search and /api/kanji/:character
 
 // ── Legacy routes ────────────────────────────────────────────────────────────
@@ -94,8 +109,8 @@ function similarityPercent(a, b) {
   return Math.max(0, Math.round((same / max) * 100));
 }
 
-// Pronunciation scoring + history (scores not faked, persisted when authenticated)
-app.post('/api/pronunciation/score', async (req, res) => {
+// Pronunciation scoring + history (scores not faked, persisted when authenticated) — rate limited
+app.post('/api/pronunciation/score', pronLimiter, async (req, res) => {
   try {
     const { audioBase64, targetText } = req.body ?? {};
     if (!audioBase64 || !targetText) return res.status(400).json({ message: 'audioBase64 and targetText are required' });
@@ -188,6 +203,10 @@ app.post('/api/pronunciation/score', async (req, res) => {
     return res.status(500).json({ message: err.message || 'Pronunciation scoring failed' });
   }
 });
+
+// ── 404 + centralized error handling ───────────────────────────────────────
+app.use(notFound);
+app.use(errorHandler);
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 const port = Number(process.env.PORT || 4000);
