@@ -5,6 +5,8 @@ import { GlassCard } from './ui/GlassCard';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/integrations/api/client';
+import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 
 function renderInline(text: string, keyBase: string): React.ReactNode[] {
@@ -57,6 +59,7 @@ interface Message {
 
 export function AIChatBubble() {
   const { user, profile } = useAuth();
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [inputValue, setInputValue] = useState('');
@@ -92,49 +95,25 @@ export function AIChatBubble() {
         content: m.content,
       }));
 
-      // Get JWT for manual fetch (supabase.functions.invoke doesn't support streaming)
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (!token) throw new Error('No active session.');
+      // Derive current page context for scoped RAG
+      const currentPage = location.pathname + location.search;
+      // Try to extract lessonId from URL like /library/:id or /lesson/:id or /session/:type
+      const lessonMatch = location.pathname.match(/\/(?:library|lesson|session)\/([^/]+)/);
+      const currentLessonId = lessonMatch ? lessonMatch[1] : null;
+      // Current topic: if user is asking about a specific topic, let the backend retrieve; also send page as hint
+      const currentTopic = currentLessonId || (location.pathname.includes('grammar') ? 'grammar' : location.pathname.includes('reading') ? 'reading' : null);
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
-
-      const abort = new AbortController();
-      const abortTimer = setTimeout(() => abort.abort(), 30_000);
-
-      let resp: Response;
-      try {
-        resp = await fetch(`${supabaseUrl}/functions/v1/chat`, {
-          method: 'POST',
-          signal: abort.signal,
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'apikey': anonKey,
-          },
-          body: JSON.stringify({
-            message: userMessage.content,
-            history,
-            userProfile: profile ? {
-              display_name:    profile.display_name,
-              current_level:   profile.current_level,
-              streak:          profile.streak,
-              xp:              profile.xp,
-              readiness_score: profile.readiness_score,
-            } : null,
-          }),
-        });
-      } finally {
-        clearTimeout(abortTimer);
-      }
-
-      if (!resp.ok) {
-        const errData = await resp.json().catch(() => ({}));
-        throw new Error((errData as { error?: string }).error ?? `HTTP ${resp.status}`);
-      }
-
-      const data = await resp.json() as { reply?: string; error?: string };
+      const data = await api.post<{ reply?: string; error?: string; retrieval?: { lessonCount: number; tokens: number } }>(
+        '/api/chat/enhanced',
+        {
+          message: userMessage.content,
+          history,
+          currentPage,
+          currentLessonId,
+          currentTopic,
+          userId: user?.id,
+        },
+      );
       if (data.error) throw new Error(data.error);
       if (!data.reply) throw new Error('Empty response from Scholar AI.');
 

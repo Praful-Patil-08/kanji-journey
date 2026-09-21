@@ -66,7 +66,7 @@ app.use('/api/quiz-history',   quizHistoryRouter);
 app.use('/api/practice-attempts', practiceAttemptsRouter);
 app.use('/api/mastery',        masteryRouter);
 app.use('/api/recommendations', recommendationsRouter);
- // app.use('/api/chat',           chatRouter); // Temporarily disabled for testing
+app.use('/api/chat',           chatRouter);
 
 // ── Legacy routes ────────────────────────────────────────────────────────────
 app.use(guestAuthRouter);
