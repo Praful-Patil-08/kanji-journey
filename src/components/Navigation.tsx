@@ -7,6 +7,8 @@ import {
   BarChart2,
   User,
   Settings as SettingsIcon,
+  Scan,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -16,6 +18,8 @@ const NAV_ITEMS = [
   { id: 'library', label: 'Library', icon: Library, path: '/library' },
   { id: 'practice', label: 'Practice', icon: PenTool, path: '/practice' },
   { id: 'progress', label: 'Progress', icon: BarChart2, path: '/progress' },
+  { id: 'dictionary', label: 'Dictionary', icon: BookOpen, path: '/dictionary' },
+  { id: 'ocr', label: 'OCR', icon: Scan, path: '/ocr' },
   { id: 'profile', label: 'Profile', icon: User, path: '/profile' },
   { id: 'settings', label: 'Settings', icon: SettingsIcon, path: '/settings' },
 ];
@@ -33,6 +37,10 @@ export function Navigation() {
     activeTab = 'practice';
   } else if (pathname.startsWith('/progress')) {
     activeTab = 'progress';
+  } else if (pathname.startsWith('/dictionary')) {
+    activeTab = 'dictionary';
+  } else if (pathname.startsWith('/ocr')) {
+    activeTab = 'ocr';
   } else if (pathname.startsWith('/profile')) {
     activeTab = 'profile';
   } else if (pathname.startsWith('/settings')) {
@@ -42,42 +50,47 @@ export function Navigation() {
   return (
     <div className="h-screen w-[280px] bg-[var(--bg-surface)] border-r border-white/10 flex flex-col pt-12 pb-10 flex-shrink-0 relative z-50 backdrop-blur-md">
       {/* Brand Header */}
-      <div className="px-9 mb-16 space-y-2 flex flex-col items-start text-left">
-        <h1 className="text-4xl font-display font-bold text-white tracking-tight uppercase">学識者</h1>
-        <p className="text-xs font-black text-white/40 uppercase tracking-[0.2em] leading-none font-sans">Scholarly Practitioner</p>
+      <div className="px-9 mb-12 space-y-3 flex flex-col items-start text-left">
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-display font-bold text-white tracking-tight">学�識者</h1>
+          <p className="text-xs font-black text-white/60 uppercase tracking-[0.15em] leading-none font-sans">Scholarly Practitioner</p>
+        </div>
+        <div className="w-full h-px bg-white/10"></div>
       </div>
 
-      <nav className="flex-1 flex flex-col gap-2 px-4 overflow-y-auto custom-scrollbar">
+      <nav className="flex-1 flex flex-col gap-1 px-4 overflow-y-auto custom-scrollbar">
         {NAV_ITEMS.map((item) => (
           <button
             key={item.id}
             onClick={() => navigate(item.path)}
             className={cn(
-              "flex items-center gap-5 px-6 py-4 min-h-[52px] rounded-xl transition-all group relative font-sans",
-              "text-white/40 hover:text-white hover:bg-white/5 active:scale-[0.98] transition-[background,transform,box-shadow] duration-200 ease-out",
+              "flex items-center gap-4 px-4 py-3.5 min-h-[50px] rounded-xl transition-all group relative font-sans",
+              "text-white/60 hover:text-white hover:bg-white/6 focus:text-white focus:bg-white/7 active:scale-[0.97] transition-[background,transform,box-shadow] duration-300 ease-in-out",
               activeTab === item.id 
-                ? "bg-[#FFD6E0]/10 text-white font-black shadow-[0_0_25px_-5px_rgba(255,214,224,0.3)] ring-1 ring-[#FFD6E0]/20" 
-                : "transparent"
+                ? "bg-[#FFD6E0]/15 text-white/90 font-black shadow-[0_0_20px_-4px_rgba(255,214,224,0.25)] ring-1 ring-[#FFD6E0]/25" 
+                : "hover:bg-white/4 focus:bg-white/5"
             )}
           >
+            {/* Active indicator - more subtle and purposeful */}
             {activeTab === item.id && (
               <motion.div 
-                layoutId="active-indicator-bar-pink"
-                className="absolute left-1.5 top-1/4 bottom-1/4 w-[2.5px] bg-[#FFD6E0] rounded-full shadow-[0_0_15px_rgba(255,214,224,0.6)]"
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                layoutId="active-indicator"
+                className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#FFD6E0]/50 rounded-r-lg shadow-[0_0_15px_rgba(255,214,224,0.3)]"
+                transition={{ type: "spring", stiffness: 200, damping: 20 }}
               />
             )}
-            <item.icon size={20} className={cn(activeTab === item.id ? "text-[#FFD6E0] drop-shadow-[0_0_8px_rgba(255,214,224,0.4)]" : "text-white/40 group-hover:text-white transition-colors")} strokeWidth={activeTab === item.id ? 2.5 : 2} />
+            <item.icon size={20} className={cn(
+              activeTab === item.id ? "text-[#FFD6E0]/90 drop-shadow-[0_0_6px_rgba(255,214,224,0.3)]" : "text-white/50 group-hover:text-white/80 transition-colors focus:text-white/90"
+            )} strokeWidth={activeTab === item.id ? 2 : 1.5} />
             <span className={cn(
-              "text-xs font-black uppercase tracking-[0.2em] transition-colors font-sans",
-              activeTab === item.id ? "text-white" : "text-white/40 group-hover:text-white"
+              "text-sm font-[500] tracking-[0.05em] transition-colors font-sans leading-none",
+              activeTab === item.id ? "text-white/90" : "text-white/60 group-hover:text-white/80 focus:text-white/90"
             )}>
               {item.label}
             </span>
           </button>
         ))}
       </nav>
-
     </div>
   );
 }

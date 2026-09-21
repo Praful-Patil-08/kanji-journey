@@ -27,6 +27,8 @@ const WritingSession  = lazy(() => import("@/components/WritingSession").then(m 
 const FlashcardSession = lazy(() => import("@/components/FlashcardSession").then(m => ({ default: m.FlashcardSession })));
 const VocabularyQuiz   = lazy(() => import("@/components/VocabularyQuiz").then(m => ({ default: m.VocabularyQuiz })));
 const GrammarRitual    = lazy(() => import("@/components/GrammarRitual").then(m => ({ default: m.GrammarRitual })));
+const OCRKanjiWorkflow = lazy(() => import("@/components/OCRKanjiWorkflow").then(m => ({ default: m.OCRKanjiWorkflow })));
+const DictionarySearch = lazy(() => import("@/components/DictionarySearch").then(m => ({ default: m.DictionarySearch })));
 
 function PageLoader() {
   return (
@@ -106,6 +108,8 @@ function AuthenticatedApp() {
         <Route path="progress" element={<Suspense fallback={<PageLoader />}><Progress /></Suspense>} />
         <Route path="profile" element={<Suspense fallback={<PageLoader />}><Profile /></Suspense>} />
         <Route path="settings" element={<Suspense fallback={<PageLoader />}><Settings /></Suspense>} />
+        <Route path="ocr" element={<Suspense fallback={<PageLoader />}><OCRKanjiWorkflow /></Suspense>} />
+        <Route path="dictionary" element={<Suspense fallback={<PageLoader />}><DictionarySearch /></Suspense>} />
         <Route path="session/:sessionType" element={<Suspense fallback={<PageLoader />}><SessionWrapper /></Suspense>} />
       </Route>
 

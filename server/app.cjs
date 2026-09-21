@@ -21,6 +21,8 @@ const practiceAttemptsRouter = require('./routes/practiceAttempts.cjs');
 const masteryRouter         = require('./routes/mastery.cjs');
 const recommendationsRouter  = require('./routes/recommendations.cjs');
 const pronunciationRouter    = require('./routes/pronunciation.cjs');
+const ocrRouter              = require('./routes/ocr.cjs');
+const dictionaryRouter       = require('./routes/dictionary.cjs');
 const chatRouter            = require('./routes/chat.cjs').chatRouter;
 const PronunciationAttempt   = require('./models/PronunciationAttempt.cjs');
 const { authSupabase }       = require('./middleware/authSupabase.cjs');
@@ -71,6 +73,8 @@ app.use('/api/mastery',        masteryRouter);
 app.use('/api/recommendations', recommendationsRouter);
 app.use('/api/chat',           chatRouter);
 app.use('/api/pronunciation',  pronunciationRouter);
+app.use('/api/ocr',            ocrRouter);
+app.use('/api',                dictionaryRouter); // handles /api/dictionary/search and /api/kanji/:character
 
 // ── Legacy routes ────────────────────────────────────────────────────────────
 app.use(guestAuthRouter);
