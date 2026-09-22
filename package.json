@@ -12,6 +12,8 @@
     "server": "node server/app.cjs",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "dev:full": "concurrently \"vite\" \"node server/app.cjs\""
   },
   "dependencies": {

@@ -38,3 +38,11 @@ jobs:
 
       - name: Verify build output
         run: test -f dist/index.html && echo "Build verified: dist/index.html exists"
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E Tests
+        run: npm run test:e2e
+        env:
+          CI: true
