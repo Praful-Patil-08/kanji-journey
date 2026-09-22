@@ -1,6 +1,19 @@
 'use strict';
 require('dotenv').config();
 
+// ── Startup env assert (fail fast in production) ────────────────────────────
+if (process.env.NODE_ENV === 'production') {
+  const required = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'MONGODB_URI'];
+  const missing = required.filter(k => !process.env[k]);
+  if (missing.length > 0) {
+    console.error(`[Startup] Missing required env vars for production: ${missing.join(', ')}`);
+    process.exit(1);
+  }
+  if (!process.env.GUEST_JWT_SECRET || process.env.GUEST_JWT_SECRET === 'dev-only-insecure-secret') {
+    console.warn('[Startup] GUEST_JWT_SECRET not set or insecure — guest auth will use weak secret');
+  }
+}
+
 const express     = require('express');
 const cors        = require('cors');
 const cookieParser = require('cookie-parser');
@@ -152,9 +165,12 @@ app.post('/api/pronunciation/score', pronLimiter, async (req, res) => {
           const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
           const { data } = await supabase.auth.getUser(token);
           userId = data?.user?.id || null;
-        } else {
+        } else if (process.env.ALLOW_INSECURE_AUTH === 'true') {
+          console.warn('[pronunciation] Using insecure JWT decode fallback');
           const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
           userId = payload?.sub || null;
+        } else {
+          userId = null;
         }
       } catch {}
     }

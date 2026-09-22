@@ -33,9 +33,10 @@ router.put('/:userId', authSupabase(), async (req, res) => {
     const { userId } = req.params;
     if (req.userId !== userId) return res.status(403).json({ error: 'Forbidden' });
 
+    // Only allow client to update non-economy fields; xp/streak/readiness are server-computed via completions/mastery
     const allowed = [
       'display_name', 'bio', 'avatar_url', 'current_level',
-      'xp', 'streak', 'readiness_score', 'daily_goal_minutes',
+      'daily_goal_minutes',
       'exam_date', 'learning_path', 'onboarding_completed',
       'last_activity_date',
     ];

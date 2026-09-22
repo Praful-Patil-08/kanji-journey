@@ -20,7 +20,11 @@ function authSupabase() {
       if (process.env.NODE_ENV === 'production') {
         return res.status(500).json({ error: 'Server misconfiguration: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set' });
       }
-      // Dev-only: decode without verification
+      // Only allow insecure decode when explicitly enabled for local dev
+      if (process.env.ALLOW_INSECURE_AUTH !== 'true') {
+        return res.status(500).json({ error: 'Server misconfiguration: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set (set ALLOW_INSECURE_AUTH=true to allow dev fallback)' });
+      }
+      console.warn('[authSupabase] Using insecure JWT decode fallback — set SUPABASE_URL and SERVICE_ROLE_KEY for production');
       try {
         const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
         if (!payload?.sub) return res.status(401).json({ error: 'Invalid token' });
