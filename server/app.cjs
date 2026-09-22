@@ -46,6 +46,16 @@ const { rateLimit }          = require('./middleware/rateLimit.cjs');
 const { guestAuthRouter }   = require('./auth/guest.route.cjs');
 
 const app = express();
+app.set('trust proxy', 1);
+
+// ── Security headers ────────────────────────────────────────────────────────
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
 const allowedOrigins = [
@@ -66,7 +76,7 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use(express.json({ limit: '25mb' }));
+app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
 
 // ── Request logging (dev) ────────────────────────────────────────────────────
@@ -84,6 +94,7 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 const chatLimiter = rateLimit({ windowMs: 60_000, max: 20, keyPrefix: 'chat' });
 const pronLimiter = rateLimit({ windowMs: 60_000, max: 20, keyPrefix: 'pron' });
 const ocrLimiter  = rateLimit({ windowMs: 60_000, max: 30, keyPrefix: 'ocr' });
+const largePayload = express.json({ limit: '25mb' });
 
 // ── MongoDB-backed API routes ─────────────────────────────────────────────────
 app.use('/api/profiles',       profilesRouter);
@@ -100,8 +111,8 @@ app.use('/api/practice-attempts', practiceAttemptsRouter);
 app.use('/api/mastery',        masteryRouter);
 app.use('/api/recommendations', recommendationsRouter);
 app.use('/api/chat', chatLimiter, chatRouter);
-app.use('/api/pronunciation', pronLimiter, pronunciationRouter);
-app.use('/api/ocr', ocrLimiter, ocrRouter);
+app.use('/api/pronunciation', pronLimiter, largePayload, pronunciationRouter);
+app.use('/api/ocr', ocrLimiter, largePayload, ocrRouter);
 app.use('/api',                dictionaryRouter); // handles /api/dictionary/search and /api/kanji/:character
 
 // ── Legacy routes ────────────────────────────────────────────────────────────
@@ -122,8 +133,8 @@ function similarityPercent(a, b) {
   return Math.max(0, Math.round((same / max) * 100));
 }
 
-// Pronunciation scoring + history (scores not faked, persisted when authenticated) — rate limited
-app.post('/api/pronunciation/score', pronLimiter, async (req, res) => {
+// Pronunciation scoring + history (scores not faked, persisted when authenticated) — rate limited, large payload
+app.post('/api/pronunciation/score', pronLimiter, largePayload, async (req, res) => {
   try {
     const { audioBase64, targetText } = req.body ?? {};
     if (!audioBase64 || !targetText) return res.status(400).json({ message: 'audioBase64 and targetText are required' });

@@ -5,11 +5,11 @@ const pronunciationAttemptSchema = new mongoose.Schema(
   {
     id: { type: String, default: () => crypto.randomUUID() },
     user_id: { type: String, required: true, index: true },
-    targetText: { type: String, required: true },
-    transcript: { type: String, required: true },
+    targetText: { type: String, required: true, trim: true, maxlength: 200 },
+    transcript: { type: String, required: true, trim: true, maxlength: 500 },
     pronunciationScore: { type: Number, required: true, min: 0, max: 100 },
     pitchAccentScore: { type: Number, required: true, min: 0, max: 100 },
-    attemptNumber: { type: Number, required: true, min: 1 },
+    attemptNumber: { type: Number, required: true, min: 1, max: 10000 },
     createdAt: { type: Date, default: () => new Date() },
   },
   { collection: 'pronunciation_attempts', versionKey: false }

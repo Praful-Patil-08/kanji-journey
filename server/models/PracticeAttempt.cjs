@@ -7,15 +7,15 @@ const practiceAttemptSchema = new mongoose.Schema(
   {
     id:              { type: String, default: () => crypto.randomUUID() },
     user_id:         { type: String, required: true, index: true },
-    questionId:      { type: String, required: true }, // stable question id (e.g. practice catalog id)
-    topic:           { type: String, required: true }, // kanji | vocabulary | grammar | reading | listening | particles etc.
-    section:         { type: String, default: null },   // vocabulary | grammar | reading | listening
-    selectedAnswer:  { type: String, required: true },
-    correctAnswer:   { type: String, required: true },
+    questionId:      { type: String, required: true, trim: true, maxlength: 100 },
+    topic:           { type: String, required: true, trim: true, maxlength: 64 },
+    section:         { type: String, default: null, trim: true, maxlength: 64 },
+    selectedAnswer:  { type: String, required: true, trim: true, maxlength: 500 },
+    correctAnswer:   { type: String, required: true, trim: true, maxlength: 500 },
     isCorrect:       { type: Boolean, required: true },
-    responseTimeMs:  { type: Number, default: null },   // client-measured, optional
-    difficulty:      { type: String, enum: ['easy','medium','hard', null], default: null },
-    level:           { type: String, default: 'N5' },   // JLPT level context
+    responseTimeMs:  { type: Number, default: null, min: 0, max: 600000 },
+    difficulty:      { type: String, enum: ['easy','medium','hard', null], default: null, trim: true },
+    level:           { type: String, default: 'N5', enum: ['N5','N4','N3','N2','N1'], trim: true },
     createdAt:       { type: Date, default: () => new Date() },
   },
   { collection: 'practice_attempts', versionKey: false }

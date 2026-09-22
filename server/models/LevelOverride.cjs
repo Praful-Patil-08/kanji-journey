@@ -5,8 +5,8 @@ const levelOverrideSchema = new mongoose.Schema(
   {
     id:           { type: String, default: () => crypto.randomUUID() },
     user_id:      { type: String, required: true, unique: true, index: true },
-    level:        { type: String, required: true },
-    confirmed_at: { type: String, default: () => new Date().toISOString() },
+    level:        { type: String, required: true, enum: ['N5','N4','N3','N2','N1'], trim: true },
+    confirmed_at: { type: String, default: () => new Date().toISOString(), trim: true, maxlength: 30 },
   },
   { collection: 'level_overrides', versionKey: false }
 );

@@ -5,10 +5,10 @@ const weakTopicSchema = new mongoose.Schema(
   {
     id:             { type: String, default: () => crypto.randomUUID() },
     user_id:        { type: String, required: true, index: true },
-    topic:          { type: String, required: true },
-    skill_area:     { type: String, required: true },
-    mistakes_count: { type: Number, default: 1 },
-    last_seen_at:   { type: String, default: () => new Date().toISOString() },
+    topic:          { type: String, required: true, trim: true, maxlength: 64 },
+    skill_area:     { type: String, required: true, trim: true, maxlength: 64 },
+    mistakes_count: { type: Number, default: 1, min: 0, max: 10000 },
+    last_seen_at:   { type: String, default: () => new Date().toISOString(), trim: true, maxlength: 30 },
   },
   { collection: 'weak_topics', versionKey: false }
 );

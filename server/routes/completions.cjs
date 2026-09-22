@@ -1,10 +1,24 @@
 'use strict';
 const express = require('express');
+const { z } = require('zod');
 const Profile = require('../models/Profile.cjs');
 const Flashcard = require('../models/Flashcard.cjs');
 const LessonProgress = require('../models/LessonProgress.cjs');
 const { authSupabase } = require('../middleware/authSupabase.cjs');
 const { getLessonById } = require('../data/lessonCatalog.cjs');
+
+const completionsSchema = z.object({
+  userId: z.string().min(1),
+  lessonId: z.string().min(1).max(50).optional().nullable(),
+  answers: z.array(z.object({
+    question: z.string().min(1).max(500),
+    correct_answer: z.string().min(1).max(500),
+    is_correct: z.boolean(),
+  })).max(50).optional().default([]),
+  score: z.number().min(0).max(100).optional().default(0),
+  timeSpentSec: z.number().min(0).max(86400).optional().default(0),
+  level: z.enum(['N5','N4','N3','N2','N1']).optional().default('N5'),
+});
 
 const router = express.Router();
 
@@ -13,10 +27,13 @@ const router = express.Router();
 // Body: { userId, lessonId, answers: [{ question, correct_answer, is_correct }], score, timeSpentSec, level }
 router.post('/', authSupabase(), async (req, res) => {
   try {
-    const { userId, lessonId, answers = [], score = 0, timeSpentSec = 0, level = 'N5' } = req.body;
+    const parsed = completionsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() });
+    }
+    const { userId, lessonId, answers, score, timeSpentSec, level } = parsed.data;
 
     if (req.userId !== userId) return res.status(403).json({ error: 'Forbidden' });
-    if (!userId) return res.status(400).json({ error: 'userId is required' });
 
     // ── 1. XP + streak ────────────────────────────────────────────────────────
     const xpGain = Math.min(50 + score, 150);
