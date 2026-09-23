@@ -115,7 +115,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (event === 'SIGNED_OUT') {
           setSession(null); setUser(null); setProfile(null); setIsLoading(false);
-          window.location.replace('/auth');
           return;
         }
 
