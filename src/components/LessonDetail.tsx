@@ -24,12 +24,27 @@ export function LessonDetail({ lessonId, onBack }: { lessonId: string | null, on
   const { data: lessons, isLoading: lesLoading } = useLessons(lessonId, user?.id);
   const collection = colRaw as any;
 
-  const handleStartLesson = () => {
-    let type: 'reading' | 'writing' | 'quiz' | 'vocab' | 'grammar' = 'quiz';
-    if (lessonId === 'v1') type = 'vocab';
-    else if (lessonId === 'p1' || lessonId === 'f2') type = 'grammar';
-    else if (lessonId === 'f1') type = 'vocab';
-    else if (lessonId === 'h1' || lessonId === 'k1') type = 'writing';
+  const handleStartLesson = (lesson?: { skill_area?: string; collection_id?: string }) => {
+    // Data-driven: use the lesson's skill_area if available, otherwise the collection's dominant skill_area
+    const skill = lesson?.skill_area || lessons?.[0]?.skill_area || collection?.level === 'N5' ? 'kanji' : 'vocabulary';
+    const map: Record<string, 'reading' | 'writing' | 'quiz' | 'vocab' | 'grammar'> = {
+      kanji: 'writing',
+      vocabulary: 'vocab',
+      grammar: 'grammar',
+      reading: 'reading',
+      listening: 'quiz',
+    };
+    // Fallback: derive from collectionId if skill still generic
+    let type: 'reading' | 'writing' | 'quiz' | 'vocab' | 'grammar' = map[skill] || 'quiz';
+    if (!lesson && lessonId) {
+      // No specific lesson - pick the collection's most common skill_area
+      const counts = (lessons || []).reduce((acc: Record<string, number>, l: any) => {
+        acc[l.skill_area] = (acc[l.skill_area] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      const dominant = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
+      if (dominant && map[dominant]) type = map[dominant];
+    }
     navigate(`/session/${type}`);
   };
 
@@ -142,7 +157,7 @@ export function LessonDetail({ lessonId, onBack }: { lessonId: string | null, on
                   <div className="w-48 flex justify-end font-sans">
                     {lesson.status === 'COMPLETED' && (
                       <button 
-                        onClick={() => handleStartLesson()}
+                        onClick={() => handleStartLesson(lesson as any)}
                         className="bg-white/10 hover:bg-white/20 text-white !px-10 !py-3 !text-[10px] shadow-sm flex items-center gap-3 rounded-full transition-all uppercase tracking-widest font-black"
                       >
                         Review
@@ -150,7 +165,7 @@ export function LessonDetail({ lessonId, onBack }: { lessonId: string | null, on
                     )}
                     {lesson.status === 'CURRENT' && (
                       <button 
-                        onClick={() => handleStartLesson()}
+                        onClick={() => handleStartLesson(lesson as any)}
                         className="bg-white text-black hover:bg-white/90 !px-10 !py-3 !text-[10px] shadow-xl flex items-center gap-3 rounded-full transition-all uppercase tracking-widest font-black"
                       >
                         Start Lesson <ArrowRight size={14} />
